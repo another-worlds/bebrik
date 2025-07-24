@@ -32,6 +32,8 @@ services:
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - XAI_API_KEY=${XAI_API_KEY}
+      - HUGGINGFACE_API_KEY=${HUGGINGFACE_API_KEY}
+      - EMBEDDING_SERVICE=${EMBEDDING_SERVICE:-huggingface}
       - MONGODB_URI=mongodb://admin:password@mongodb:27017/telegram_bot?authSource=admin
     volumes:
       - ./uploads:/app/uploads

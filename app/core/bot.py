@@ -1,5 +1,6 @@
 import os
 import asyncio
+from datetime import datetime
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from telegram.error import BadRequest
@@ -35,7 +36,7 @@ class TelegramBot:
     async def list_documents(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /docs command"""
         user_id = str(update.effective_user.id)
-        docs = document_handler.get_user_documents(user_id)
+        docs = db.get_user_documents(user_id)
         
         if not docs:
             await update.message.reply_text("You haven't uploaded any documents yet.")
@@ -43,8 +44,14 @@ class TelegramBot:
         
         response = "Your uploaded documents:\n\n"
         for doc in docs:
-            status = "✅" if doc["status"] == "processed" else "❌"
-            response += f"{status} {os.path.basename(doc['file_path'])} - {doc['upload_time'].strftime('%Y-%m-%d %H:%M')}\n"
+            status = "✅" if doc.get("status") == "processed" else "❌"
+            file_path = doc.get('file_path', '')
+            if file_path:
+                file_name = os.path.basename(file_path)
+            else:
+                file_name = doc.get('metadata', {}).get('file_name', 'Unknown')
+            upload_time = doc.get('upload_time', datetime.utcnow()).strftime('%Y-%m-%d %H:%M')
+            response += f"{status} {file_name} - {upload_time}\n"
         
         await update.message.reply_text(response)
 
@@ -90,6 +97,10 @@ class TelegramBot:
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle text messages"""
+        # Check if message exists and has text
+        if not update.message or not update.message.text:
+            return
+            
         user_id = str(update.effective_user.id)
         message_text = update.message.text
         
@@ -134,9 +145,15 @@ class TelegramBot:
                 
                 if pending_messages > 0:
                     self.processing_users.add(user_id)
-                    asyncio.create_task(self._process_messages(user_id))
+                    # Use asyncio.create_task properly
+                    try:
+                        asyncio.create_task(self._process_messages(user_id))
+                    except RuntimeError:
+                        # If event loop is closed, don't create new tasks
+                        pass
             except Exception as e:
                 print(f"Error checking pending messages: {e}")
+                # Don't try to create new tasks if there's an error
 
     async def _send_long_message(self, user_context: dict, text: str, max_length: int = 4000):
         """Split and send long messages as replies in the same chat"""
@@ -222,8 +239,14 @@ class TelegramBot:
 
     async def stop(self):
         """Stop the bot"""
-        await self.app.stop()
-        await self.app.shutdown()
+        try:
+            if self.app.updater.running:
+                await self.app.updater.stop()
+            if self.app.running:
+                await self.app.stop()
+            await self.app.shutdown()
+        except Exception as e:
+            print(f"Error during bot shutdown: {e}")
 
 # Create a singleton instance
 bot = TelegramBot()

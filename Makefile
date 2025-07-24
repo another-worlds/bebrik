@@ -1,4 +1,4 @@
-.PHONY: install run clean venv activate docker-build docker-run docker-stop docker-logs docker-clean
+.PHONY: install run clean venv activate docker-build docker-run docker-stop docker-logs docker-clean migrate-to-hf
 
 VENV_NAME=venv
 PYTHON=python3
@@ -22,6 +22,16 @@ run:
 		echo "Virtual environment not found. Run 'make install' first."; \
 		exit 1; \
 	fi
+
+# Migration to HuggingFace Embeddings
+migrate-to-hf:
+	@echo "Migrating to HuggingFace Inference API embeddings..."
+	@echo "1. Make sure HUGGINGFACE_API_KEY is set in your .env file"
+	@echo "2. Get your free API key from: https://huggingface.co/settings/tokens"
+	@echo "3. Update your .env file with: HUGGINGFACE_API_KEY=your_key_here"
+	@echo "4. Set EMBEDDING_SERVICE=huggingface in your .env file"
+	@echo "5. Run 'make docker-clean && make docker-build && make docker-run'"
+	@echo "Migration setup complete!"
 
 # Docker commands
 docker-build:

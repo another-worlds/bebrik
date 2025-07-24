@@ -1,8 +1,22 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from app.core.bot import bot
 
-# Initialize FastAPI
-app = FastAPI(title="Telegram Multi-Agent AI Bot", version="1.0.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager for startup and shutdown events"""
+    # Startup
+    await bot.start()
+    yield
+    # Shutdown
+    await bot.stop()
+
+# Initialize FastAPI with lifespan
+app = FastAPI(
+    title="Telegram Multi-Agent AI Bot", 
+    version="1.0.0",
+    lifespan=lifespan
+)
 
 @app.get("/health")
 async def health_check():
@@ -13,16 +27,6 @@ async def health_check():
 async def root():
     """Root endpoint"""
     return {"message": "Telegram Multi-Agent AI Bot is running"}
-
-@app.on_event("startup")
-async def startup_event():
-    """Start the bot when the application starts"""
-    await bot.start()
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Stop the bot when the application shuts down"""
-    await bot.stop()
 
 if __name__ == "__main__":
     import uvicorn

@@ -5,15 +5,14 @@ from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader, Un
 from langchain.chains import RetrievalQA
 from langchain_xai import ChatXAI
 from langchain.schema import Document as LangchainDocument
-from sentence_transformers import SentenceTransformer
-import numpy as np
 import os
 import mimetypes
 from langchain.prompts import ChatPromptTemplate
 
-from ..config import CHUNK_SIZE, CHUNK_OVERLAP, VECTOR_INDEX_NAME, VECTOR_DIMENSIONS, EMBEDDING_MODEL, LLM_MODEL, XAI_API_KEY
+from ..config import CHUNK_SIZE, CHUNK_OVERLAP, VECTOR_INDEX_NAME, VECTOR_DIMENSIONS, LLM_MODEL, XAI_API_KEY
 from ..database.mongodb import db
 from ..models.document import Document
+from ..services.embedding import embedding_service
 
 class DocumentHandler:
     def __init__(self):
@@ -25,9 +24,9 @@ class DocumentHandler:
         )
         self.db = db  # Initialize MongoDB connection
         
-        # Initialize Sentence Transformer model
-        self.embeddings_model = SentenceTransformer(EMBEDDING_MODEL)
-        self.embedding_dim = self.embeddings_model.get_sentence_embedding_dimension()
+        # Use the HuggingFace embedding service
+        self.embedding_service = embedding_service
+        self.embedding_dim = self.embedding_service.dimensions
         
         # Initialize xAI Chat model
         self.llm = ChatXAI(
@@ -38,15 +37,13 @@ class DocumentHandler:
         
         mimetypes.init()
     
-    def _embed_documents(self, texts: List[str]) -> List[List[float]]:
-        """Generate embeddings for documents using Sentence Transformers"""
-        embeddings = self.embeddings_model.encode(texts, convert_to_tensor=False)
-        return embeddings.tolist()
+    async def _embed_documents(self, texts: List[str]) -> List[List[float]]:
+        """Generate embeddings for documents using the HuggingFace service"""
+        return await self.embedding_service.embed_documents(texts)
     
-    def _embed_query(self, query: str) -> List[float]:
-        """Generate embedding for query using Sentence Transformers"""
-        embedding = self.embeddings_model.encode([query], convert_to_tensor=False)
-        return embedding[0].tolist()
+    async def _embed_query(self, query: str) -> List[float]:
+        """Generate embedding for query using the HuggingFace service"""
+        return await self.embedding_service.embed_query(query)
     
     def _get_loader(self, file_path: str):
         """Get appropriate loader based on file type"""
@@ -57,7 +54,14 @@ class DocumentHandler:
         elif mime_type in ['application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']:
             return Docx2txtLoader(file_path)
         else:
-            return UnstructuredFileLoader(file_path)
+            # Fallback to simple text reading for unsupported file types
+            try:
+                from langchain_community.document_loaders import UnstructuredFileLoader
+                return UnstructuredFileLoader(file_path)
+            except ImportError:
+                # If unstructured is not available, use a simple text loader
+                from langchain_community.document_loaders import TextLoader
+                return TextLoader(file_path)
     
     async def process_document(self, file_path: str, user_id: str) -> Dict[str, Any]:
         """Process a document and store it with embeddings in MongoDB"""
@@ -91,16 +95,11 @@ class DocumentHandler:
             # Update document with chunk information
             document.chunk_count = len(chunks)
             
-            # Get embeddings for all chunks in batches
+            # Get embeddings for all chunks using the service
             chunk_texts = [chunk.page_content for chunk in chunks]
-            all_embeddings = []
             
-            # Process in batches of 100
-            batch_size = 1000
-            for i in range(0, len(chunk_texts), batch_size):
-                batch = chunk_texts[i:i + batch_size]
-                batch_embeddings = self._embed_documents(batch)
-                all_embeddings.extend(batch_embeddings)
+            print(f"Generating embeddings for {len(chunk_texts)} chunks using {type(self.embedding_service).__name__}...")
+            all_embeddings = await self._embed_documents(chunk_texts)
             
             # Create chunks with embeddings and better metadata
             chunks_data = []
@@ -123,7 +122,9 @@ class DocumentHandler:
                     "total_chunks": len(chunks),
                     "char_length": len(chunk_text),
                     "word_count": len(chunk_text.split()),
-                    "created_at": datetime.utcnow()
+                    "created_at": datetime.utcnow(),
+                    "embedding_service": type(self.embedding_service).__name__,
+                    "embedding_model": getattr(self.embedding_service, 'model', 'unknown')
                 }
                 
                 chunks_data.append({
@@ -185,8 +186,8 @@ class DocumentHandler:
             
             # Search with each variation and collect results
             for variation in semantic_variations:
-                # Get embedding for the variation
-                query_embedding = self._embed_query(variation)
+                # Get embedding for the variation using the service
+                query_embedding = await self._embed_query(variation)
                 
                 # Search similar chunks
                 chunks = self.db.search_similar_chunks(query_embedding, user_id, k=5)

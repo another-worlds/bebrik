@@ -2,7 +2,7 @@ from typing import Dict, Any, List
 from datetime import datetime
 from pymongo import MongoClient, ASCENDING
 from pymongo.operations import IndexModel
-import numpy as np
+
 from ..config import (
     MONGODB_URI, 
     MONGODB_DB_NAME, 
@@ -27,16 +27,26 @@ class MongoDB:
     
     def _setup_indexes(self):
         """Create indexes for better query performance"""
-        # Message queue indexes
-        self.message_queue.create_index([("user_id", ASCENDING), ("timestamp", ASCENDING)])
-        self.message_queue.create_index([("is_processed", ASCENDING)])
+        try:
+            # Test connection first
+            self.client.admin.command('ping')
+            
+            # Message queue indexes
+            self.message_queue.create_index([("user_id", ASCENDING), ("timestamp", ASCENDING)])
+            self.message_queue.create_index([("is_processed", ASCENDING)])
+            
+            # Document indexes
+            self.documents.create_index([("user_id", ASCENDING)])
+            self.documents.create_index([("file_hash", ASCENDING)])
+            self.documents.create_index([("chunks.metadata.user_id", ASCENDING)])
+            
+            print("Basic indexes created successfully")
+            
+        except Exception as e:
+            print(f"Warning: Could not create indexes: {str(e)}")
+            print("Application will continue with reduced performance")
         
-        # Document indexes
-        self.documents.create_index([("user_id", ASCENDING)])
-        self.documents.create_index([("file_hash", ASCENDING)])
-        self.documents.create_index([("chunks.metadata.user_id", ASCENDING)])
-        
-        # Vector search index for embeddings
+        # Vector search index for embeddings (optional)
         try:
             # Drop existing vector index if exists
             try:
@@ -118,7 +128,7 @@ class MongoDB:
         # Convert numpy arrays to lists for MongoDB storage
         if "chunks" in doc_info:
             for chunk in doc_info["chunks"]:
-                if "embedding" in chunk and isinstance(chunk["embedding"], np.ndarray):
+                if "embedding" in chunk and hasattr(chunk["embedding"], 'tolist'):
                     chunk["embedding"] = chunk["embedding"].tolist()
         
         result = self.documents.insert_one(doc_info)
@@ -136,7 +146,7 @@ class MongoDB:
         """Search for similar chunks using vector similarity"""
         try:
             # Convert query vector to list if it's numpy array
-            if isinstance(query_vector, np.ndarray):
+            if hasattr(query_vector, 'tolist'):
                 query_vector = query_vector.tolist()
             
             # Use MongoDB Atlas vector search

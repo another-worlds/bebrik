@@ -8,6 +8,14 @@ load_dotenv()
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 XAI_API_KEY = os.getenv("XAI_API_KEY")
 
+# Embedding Service Configuration
+HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
+EMBEDDING_SERVICE = os.getenv("EMBEDDING_SERVICE", "huggingface")  # Options: "huggingface", "local"
+EMBEDDING_MODEL = "intfloat/multilingual-e5-large"  # HuggingFace model that supports feature extraction (1024 dimensions)
+EMBEDDING_BATCH_SIZE = 50  # HuggingFace allows batch processing
+EMBEDDING_MAX_RETRIES = 3
+EMBEDDING_TIMEOUT = 30
+
 # MongoDB Configuration
 MONGODB_URI = "mongodb+srv://aegorshev:vbu677776A.@cluster0.c2qsjcq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 MONGODB_DB_NAME = os.getenv("MONGODB_DB_NAME", "telegram_bot")
@@ -17,12 +25,9 @@ MONGODB_COLLECTIONS = {
 }
 
 # Vector Search Configuration
-VECTOR_DIMENSIONS = 384  # Sentence Transformers all-MiniLM-L6-v2 dimensions
+VECTOR_DIMENSIONS = 1024  # intfloat/multilingual-e5-large dimensions
 VECTOR_SIMILARITY = "cosine"
 VECTOR_INDEX_NAME = "default"
-
-# Embedding Model Configuration
-EMBEDDING_MODEL = "all-MiniLM-L6-v2"  # Fast and efficient sentence transformer model
 
 # Message Processing Configuration
 WAIT_TIME = 15  # seconds to wait for additional messages

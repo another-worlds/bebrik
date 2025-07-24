@@ -1,4 +1,0 @@
-python-telegram-bot
-langchain
-langchain-community
-langchain-core
