@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  telegram-bot:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: telegram-bot-dev
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - XAI_API_KEY=${XAI_API_KEY}
+      - MONGODB_URI=mongodb://admin:password@mongodb:27017/telegram_bot?authSource=admin
+      - LOG_LEVEL=DEBUG
+    volumes:
+      - ./:/app
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    env_file:
+      - .env
+    depends_on:
+      - mongodb
+    networks:
+      - telegram-bot-network
+    # Override command for development with auto-reload
+    command: ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  mongodb:
+    image: mongo:7.0
+    container_name: telegram-bot-mongodb-dev
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password
+      - MONGO_INITDB_DATABASE=telegram_bot
+    volumes:
+      - mongodb_data_dev:/data/db
+    networks:
+      - telegram-bot-network
+
+volumes:
+  mongodb_data_dev:
+
+networks:
+  telegram-bot-network:
+    driver: bridge
