@@ -23,7 +23,7 @@ services:
     networks:
       - telegram-bot-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "python", "health_check.py"]
       interval: 30s
       timeout: 10s
       retries: 5
