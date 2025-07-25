@@ -35,9 +35,12 @@ services:
       - HUGGINGFACE_API_KEY=${HUGGINGFACE_API_KEY}
       - EMBEDDING_SERVICE=${EMBEDDING_SERVICE:-huggingface}
       - MONGODB_URI=mongodb://admin:password@mongodb:27017/telegram_bot?authSource=admin
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOGS_DIR=/app/logs
     volumes:
       - ./uploads:/app/uploads
       - ./logs:/app/logs
+      - telegram_bot_data:/app/data
     env_file:
       - .env
     depends_on:
@@ -73,6 +76,7 @@ services:
 
 volumes:
   mongodb_data:
+  telegram_bot_data:
 
 networks:
   telegram-bot-network:

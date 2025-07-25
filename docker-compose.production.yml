@@ -1,0 +1,134 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: telegram-bot-mongodb-prod
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_ROOT_USERNAME:-admin}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD:-password}
+      - MONGO_INITDB_DATABASE=telegram_bot
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+      - ./mongo-init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - telegram-bot-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  telegram-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+    container_name: telegram-bot-prod
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - XAI_API_KEY=${XAI_API_KEY}
+      - HUGGINGFACE_API_KEY=${HUGGINGFACE_API_KEY}
+      - EMBEDDING_SERVICE=${EMBEDDING_SERVICE:-huggingface}
+      - MONGODB_URI=mongodb://${MONGO_ROOT_USERNAME:-admin}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017/telegram_bot?authSource=admin
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOGS_DIR=/app/logs
+      - PYTHONPATH=/app
+    volumes:
+      - uploads_data:/app/uploads
+      - logs_data:/app/logs
+      - telegram_bot_data:/app/data
+    env_file:
+      - .env
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - telegram-bot-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+  # Reverse proxy for production
+  nginx:
+    image: nginx:alpine
+    container_name: telegram-bot-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - telegram-bot
+    networks:
+      - telegram-bot-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  # Optional: Log aggregation
+  fluentd:
+    build: ./fluentd
+    container_name: telegram-bot-fluentd
+    volumes:
+      - logs_data:/fluentd/log
+      - ./fluentd/conf:/fluentd/etc
+    ports:
+      - "24224:24224"
+      - "24224:24224/udp"
+    networks:
+      - telegram-bot-network
+    depends_on:
+      - telegram-bot
+
+volumes:
+  mongodb_data:
+    driver: local
+  mongodb_config:
+    driver: local
+  uploads_data:
+    driver: local
+  logs_data:
+    driver: local
+  telegram_bot_data:
+    driver: local
+
+networks:
+  telegram-bot-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

@@ -27,3 +27,6 @@ class Message:
     def is_document_related(self) -> bool:
         """Check if message is document-related"""
         return self.is_file or bool(self.document_ref)
+
+# Alias for compatibility
+MessageModel = Message

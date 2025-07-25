@@ -9,7 +9,12 @@ from ..config import TELEGRAM_BOT_TOKEN, DOCUMENT_UPLOAD_PATH
 from ..handlers.message import message_handler
 from ..handlers.document import document_handler
 from ..utils.language import detect_language
+from ..utils.logging import log_user_interaction, get_logger
 from ..database.mongodb import db
+from ..models.message import Message
+
+# Get logger for bot operations
+bot_logger = get_logger('telegram_bot')
 
 class TelegramBot:
     def __init__(self):
@@ -98,21 +103,42 @@ class TelegramBot:
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle text messages"""
         # Check if message exists and has text
-        if not update.message or not update.message.text:
+        if not update.message or not update.message.text or not update.effective_user:
             return
             
-        user_id = str(update.effective_user.id)
+        user = update.effective_user
+        user_id = str(user.id)
         message_text = update.message.text
+        
+        # Log user interaction
+        log_user_interaction(
+            user_id=user.id,
+            username=user.username or "unknown",
+            action="message_sent",
+            details={
+                'message_type': 'text',
+                'chat_id': update.effective_chat.id if update.effective_chat else None,
+                'message_length': len(message_text),
+                'message_preview': message_text[:100] + "..." if len(message_text) > 100 else message_text
+            }
+        )
+        
+        bot_logger.info(f"📝 Processing message from user {user.username or user.id} in chat {update.effective_chat.id if update.effective_chat else 'unknown'}")
         
         # Store chat context for this user
         self.user_contexts[user_id] = {
-            'chat_id': update.effective_chat.id,
+            'chat_id': update.effective_chat.id if update.effective_chat else None,
             'message_id': update.message.message_id,
             'update': update
         }
         
-        # Add message to queue using MongoDB instance directly
-        db.add_message(user_id, message_text)
+        # Create message object and insert it
+        message_obj = Message(
+            user_id=user_id,
+            message=message_text,
+            timestamp=datetime.now()
+        )
+        await db.insert_message(message_obj)
         
         # Schedule message processing if not already processing for this user
         if user_id not in self.processing_users:

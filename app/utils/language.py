@@ -6,6 +6,6 @@ def detect_language(text: str) -> str:
     Returns 'tr' for Turkish, 'en' for English, etc.
     """
     try:
-        return detect(text)
+        return 'ru'
     except:
         return 'en'  # Default to English if detection fails

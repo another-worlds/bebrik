@@ -1,15 +1,26 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+import logging
 from app.core.bot import bot
+from app.utils.logging import setup_logging
+
+# Initialize logging system
+setup_logging()
+logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup and shutdown events"""
     # Startup
+    logger.info("🚀 Starting Telegram Multi-Agent AI Bot")
+    logger.info("📱 Initializing Telegram bot connection")
     await bot.start()
+    logger.info("✅ Bot started successfully")
     yield
     # Shutdown
+    logger.info("🛑 Shutting down Telegram Multi-Agent AI Bot")
     await bot.stop()
+    logger.info("✅ Bot stopped successfully")
 
 # Initialize FastAPI with lifespan
 app = FastAPI(

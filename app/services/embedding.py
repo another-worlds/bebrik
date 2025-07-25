@@ -16,8 +16,9 @@ from ..config import (
     EMBEDDING_MAX_RETRIES,
     EMBEDDING_TIMEOUT
 )
+from ..utils.logging import get_logger, log_async_performance
 
-logger = logging.getLogger(__name__)
+logger = get_logger('embedding_service')
 
 class EmbeddingServiceBase(ABC):
     """Base class for embedding services"""
@@ -179,6 +180,7 @@ class HuggingFaceEmbeddingService(EmbeddingServiceBase):
         
         return []
     
+    @log_async_performance("embedding_service")
     async def embed_documents(self, texts: List[str]) -> List[List[float]]:
         """Generate embeddings for documents with batching and rate limiting"""
         if not texts:
@@ -223,6 +225,7 @@ class HuggingFaceEmbeddingService(EmbeddingServiceBase):
         
         return all_embeddings
     
+    @log_async_performance("embedding_service")
     async def embed_query(self, query: str) -> List[float]:
         """Generate embedding for query"""
         try:
