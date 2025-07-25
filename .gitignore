@@ -7,6 +7,5 @@
 /venv
 venv
 */venv
-logs/*
 mongo-init/*
 uploads/*

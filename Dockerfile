@@ -7,8 +7,7 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app \
-    LOG_LEVEL=INFO \
-    LOGS_DIR=/app/logs
+    LOG_LEVEL=INFO
 
 # Install system dependencies required for document processing
 RUN apt-get update && apt-get install -y \
@@ -32,21 +31,23 @@ RUN pip install --no-cache-dir --upgrade pip && \
 COPY . .
 
 # Create necessary directories with proper permissions
-RUN mkdir -p uploads logs && \
-    chmod 755 uploads logs
+RUN mkdir -p uploads && \
+    chmod 755 uploads
 
 # Create non-root user for security
 RUN useradd --create-home --shell /bin/bash app && \
     chown -R app:app /app && \
-    chmod -R 755 /app/uploads /app/logs
+    chmod -R 775 /app/uploads
+
+# Switch to non-root user
 USER app
 
 # Expose port
 EXPOSE 8000
 
-# Health check - updated for better reliability
+# Health check - using python instead of curl for better reliability
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD python health_check.py || exit 1
 
 # Add labels for better container management
 LABEL maintainer="telegram-bot-team" \

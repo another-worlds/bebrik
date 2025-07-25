@@ -25,7 +25,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app \
     LOG_LEVEL=INFO \
-    LOGS_DIR=/app/logs \
     PATH=/home/app/.local/bin:$PATH
 
 # Install runtime dependencies
@@ -47,9 +46,9 @@ COPY --from=builder /root/.local /home/app/.local
 COPY --chown=app:app . .
 
 # Create necessary directories with proper permissions
-RUN mkdir -p uploads logs && \
+RUN mkdir -p uploads && \
     chown -R app:app /app && \
-    chmod -R 755 /app/uploads /app/logs
+    chmod -R 755 /app/uploads
 
 # Switch to non-root user
 USER app

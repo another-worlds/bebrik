@@ -13,7 +13,6 @@ services:
       - HUGGINGFACE_API_KEY=${HUGGINGFACE_API_KEY}
       - EMBEDDING_SERVICE=${EMBEDDING_SERVICE:-huggingface}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - LOGS_DIR=/app/logs
       - MONGODB_USERNAME=${MONGODB_USERNAME}
       - MONGODB_PASSWORD=${MONGODB_PASSWORD}
       - MONGODB_CLUSTER=${MONGODB_CLUSTER}
@@ -21,7 +20,6 @@ services:
       - MONGODB_DB_NAME=${MONGODB_DB_NAME:-telegram_bot}
     volumes:
       - ./uploads:/app/uploads
-      - ./logs:/app/logs
       - telegram_bot_data:/app/data
     env_file:
       - .env

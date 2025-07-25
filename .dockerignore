@@ -78,7 +78,6 @@ test_*/
 
 # Runtime directories (will be created in container)
 uploads/*
-logs/*
 .chromadb/
 
 # Development dependencies

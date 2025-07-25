@@ -1,27 +1,43 @@
 #!/usr/bin/env python3
 """
-Test script to verify the elaborate logging system implementation
+Test script to verify the simplified console-only logging system
 """
 
 import asyncio
 import sys
 import os
+import time
+
+# Add the project root to the Python path
+sys.path.insert(0, os.path.dirname(__file__))
+
+from app.utils.logging import setup_logging
+from app.utils.logging import document_logger, message_logger, embedding_logger, db_logger
+from app.utils.logging import log_performance, log_async_performance  # Import both decoratorsython3
+"""
+Test script to verify the si    print("📺 Console logging is active - Docker will capture all output!")plified console-only logging system
+"""
+
+import asyncio
+import sys
+import os
+import time
 
 # Add the app directory to the Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '.'))
 
 from app.utils.logging import setup_logging
 from app.utils.logging import document_logger, message_logger, embedding_logger, db_logger
-from app.utils.logging import performance_logger  # Import the decorator separately
+from app.utils.logging import log_performance, log_async_performance  # Import both decorators
 
 def test_logging_system():
-    """Test the logging system setup and functionality"""
-    print("🧪 Testing Elaborate Logging System")
+    """Test the console-only logging system functionality"""
+    print("🧪 Testing Console-Only Logging System")
     print("=" * 50)
     
     # Setup logging
     setup_logging()
-    print("✅ Logging system initialized")
+    print("✅ Console logging system initialized")
     
     # Test document pipeline logger
     print("\n📄 Testing Document Pipeline Logger:")
@@ -52,25 +68,20 @@ def test_logging_system():
     db_logger.debug("📊 Found 5 similar documents")
     
     print("\n🎉 All logging tests completed!")
-    print("📁 Check the 'logs/' directory for log files:")
-    print("   - telegram_bot.log (main application log)")
-    print("   - document_pipeline.log (document processing)")
-    print("   - message_pipeline.log (message processing)")
-    print("   - embedding_service.log (embedding operations)")
-    print("   - database.log (database operations)")
+    print("� Console logging is active - Docker will capture all output!")
+    print("💡 Use 'docker-compose logs -f telegram-bot' to view logs")
 
 def test_performance_logger():
     """Test the performance logging decorator"""
     print("\n⏱️  Testing Performance Logger:")
     
-    @performance_logger
+    @log_performance("test_module")
     def sync_test_function(name: str) -> str:
         """Test synchronous function with performance logging"""
-        import time
         time.sleep(0.1)  # Simulate work
         return f"Processed {name}"
     
-    @performance_logger
+    @log_async_performance("test_module")
     async def async_test_function(name: str) -> str:
         """Test asynchronous function with performance logging"""
         await asyncio.sleep(0.1)  # Simulate async work
@@ -91,13 +102,5 @@ if __name__ == "__main__":
     test_logging_system()
     test_performance_logger()
     
-    print("\n🔍 Log Directory Structure:")
-    logs_dir = "logs"
-    if os.path.exists(logs_dir):
-        for file in os.listdir(logs_dir):
-            file_path = os.path.join(logs_dir, file)
-            if os.path.isfile(file_path):
-                size = os.path.getsize(file_path)
-                print(f"   📄 {file} ({size} bytes)")
-    else:
-        print("   📁 Logs directory will be created when the system runs")
+    print("\n� Console-only logging is active - no log files are created!")
+    print("� All output is captured by Docker for centralized log management")

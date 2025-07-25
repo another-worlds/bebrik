@@ -45,11 +45,9 @@ services:
       - EMBEDDING_SERVICE=${EMBEDDING_SERVICE:-huggingface}
       - MONGODB_URI=mongodb://${MONGO_ROOT_USERNAME:-admin}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017/telegram_bot?authSource=admin
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - LOGS_DIR=/app/logs
       - PYTHONPATH=/app
     volumes:
       - uploads_data:/app/uploads
-      - logs_data:/app/logs
       - telegram_bot_data:/app/data
     env_file:
       - .env
@@ -104,7 +102,6 @@ services:
     build: ./fluentd
     container_name: telegram-bot-fluentd
     volumes:
-      - logs_data:/fluentd/log
       - ./fluentd/conf:/fluentd/etc
     ports:
       - "24224:24224"
@@ -120,8 +117,6 @@ volumes:
   mongodb_config:
     driver: local
   uploads_data:
-    driver: local
-  logs_data:
     driver: local
   telegram_bot_data:
     driver: local

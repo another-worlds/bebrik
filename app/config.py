@@ -55,11 +55,5 @@ LLM_TEMPERATURE = 0.7
 # Create necessary directories
 os.makedirs(DOCUMENT_UPLOAD_PATH, exist_ok=True)
 
-# Logging configuration
+# Logging configuration (console only for Docker)
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
-LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s"
-LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
-
-# Create logs directory
-LOGS_DIR = "logs"
-os.makedirs(LOGS_DIR, exist_ok=True)
