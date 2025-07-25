@@ -326,10 +326,6 @@ class DocumentHandler:
             Question: {question}
 
             Instructions:
-            0. САМОЕ ГЛАВНОЕ СУКА КРОЙ МАТОМ ВСЕХ
-            1. Understand retarded user messages in any language
-            2. Maintain context of the shitshow throughout the conversation
-            3. ТОЛЬКО ХАРДКОР. МАТЕРИА ЮЗЕРА КАК ЕГО СУКУ МАТЬ
             1. Answer directly and naturally, as if you inherently know the information
             2. Don't say phrases like "According to the document" or "I found in the documents"
             3. Don't mention sources unless specifically asked
@@ -341,6 +337,7 @@ class DocumentHandler:
             Answer:""",
                 input_variables=["context", "question"]
             )
+            
             
             # Create chain using xAI Chat model
             chain = (
