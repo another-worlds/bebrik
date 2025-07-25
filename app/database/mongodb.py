@@ -44,46 +44,95 @@ class MongoDB:
         
         try:
             # Vector index for similarity search
-            vector_index_result = self.documents.create_index([
-                ("embedding", "2dsphere")
-            ], name="vector_index")
-            db_logger.debug(f"📊 Vector index: {vector_index_result}")
+            try:
+                vector_index_result = self.documents.create_index([
+                    ("embedding", "2dsphere")
+                ], name="vector_index")
+                db_logger.debug(f"📊 Vector index: {vector_index_result}")
+            except Exception as e:
+                if "already exists" in str(e):
+                    db_logger.debug("📊 Vector index already exists, skipping")
+                else:
+                    raise
             
-            # Text index for content search
-            text_index_result = self.documents.create_index([
-                ("content", "text"),
-                ("file_name", "text")
-            ], name="content_text_index")
-            db_logger.debug(f"🔍 Text index: {text_index_result}")
+            # Text index for content search - check if it exists first
+            try:
+                # Check existing indexes to avoid conflicts
+                existing_indexes = list(self.documents.list_indexes())
+                text_index_exists = any("text" in idx.get("key", {}).values() for idx in existing_indexes)
+                
+                if not text_index_exists:
+                    text_index_result = self.documents.create_index([
+                        ("content", "text"),
+                        ("file_name", "text")
+                    ], name="content_text_index")
+                    db_logger.debug(f"🔍 Text index: {text_index_result}")
+                else:
+                    db_logger.debug("🔍 Text index already exists, skipping creation")
+            except Exception as e:
+                if "already exists" in str(e) or "IndexOptionsConflict" in str(e):
+                    db_logger.debug("🔍 Text index conflict detected, using existing index")
+                else:
+                    raise
             
             # Compound index for user-specific queries
-            user_index_result = self.documents.create_index([
-                ("user_id", 1),
-                ("timestamp", -1)
-            ], name="user_timestamp_index")
-            db_logger.debug(f"👤 User index: {user_index_result}")
+            try:
+                user_index_result = self.documents.create_index([
+                    ("user_id", 1),
+                    ("timestamp", -1)
+                ], name="user_timestamp_index")
+                db_logger.debug(f"👤 User index: {user_index_result}")
+            except Exception as e:
+                if "already exists" in str(e):
+                    db_logger.debug("👤 User index already exists, skipping")
+                else:
+                    raise
             
             # Message queue index
-            message_index_result = self.message_queue.create_index([
-                ("user_id", 1),
-                ("timestamp", -1)
-            ], name="message_user_timestamp_index")
-            db_logger.debug(f"💬 Message index: {message_index_result}")
+            try:
+                message_index_result = self.message_queue.create_index([
+                    ("user_id", 1),
+                    ("timestamp", -1)
+                ], name="message_user_timestamp_index")
+                db_logger.debug(f"💬 Message index: {message_index_result}")
+            except Exception as e:
+                if "already exists" in str(e):
+                    db_logger.debug("💬 Message index already exists, skipping")
+                else:
+                    raise
             
             db_logger.info("✅ All database indexes created successfully")
             
         except Exception as e:
             db_logger.error(f"❌ Failed to create indexes: {str(e)}")
-            raise
+            # Don't raise the exception - let the app continue even if indexes fail
+            db_logger.info("🔄 Continuing without index creation, app should still work")
     
     @log_async_performance("database")
     async def insert_message(self, message: MessageModel) -> str:
         """Insert a message into the database"""
         db_logger.info(f"💾 Inserting message for user {message.user_id}")
-        db_logger.debug(f"📝 Message preview: {message.content[:100]}...")
+        
+        # Handle both custom Message class and potential other message types
+        message_text = getattr(message, 'message', '') or getattr(message, 'text', '') or getattr(message, 'content', '')
+        db_logger.debug(f"📝 Message preview: {message_text[:100]}...")
         
         try:
-            message_dict = message.model_dump()
+            # Use to_dict() method if available, otherwise try model_dump()
+            if hasattr(message, 'to_dict'):
+                message_dict = message.to_dict()
+            elif hasattr(message, 'model_dump'):
+                message_dict = message.model_dump()
+            else:
+                # Fallback: manually create dict from known attributes
+                message_dict = {
+                    'user_id': message.user_id,
+                    'message': message_text,
+                    'timestamp': getattr(message, 'timestamp', datetime.utcnow()),
+                    'is_processed': getattr(message, 'is_processed', False),
+                    'is_file': getattr(message, 'is_file', False)
+                }
+            
             message_dict['timestamp'] = datetime.utcnow()
             
             result = self.message_queue.insert_one(message_dict)
@@ -96,7 +145,17 @@ class MongoDB:
             
         except Exception as e:
             db_logger.error(f"❌ Failed to insert message: {str(e)}")
-            db_logger.debug(f"🔍 Message data: {message.model_dump()}")
+            # Safe debug logging that won't fail
+            try:
+                if hasattr(message, 'to_dict'):
+                    debug_data = message.to_dict()
+                elif hasattr(message, 'model_dump'):
+                    debug_data = message.model_dump()
+                else:
+                    debug_data = f"Message type: {type(message)}, user_id: {getattr(message, 'user_id', 'unknown')}"
+                db_logger.debug(f"🔍 Message data: {debug_data}")
+            except:
+                db_logger.debug(f"🔍 Could not serialize message data for debugging")
             raise
     
     @log_performance("database")
