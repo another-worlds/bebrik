@@ -264,7 +264,29 @@ class DocumentHandler:
                 
                 # Add unique chunks to results
                 for chunk in chunks:
-                    chunk_id = f"{chunk['metadata'].get('file_hash', '')}_{chunk['metadata'].get('chunk_index', '')}"
+                    # Debug: log the chunk structure
+                    doc_logger.debug(f"🔍 Chunk structure: {list(chunk.keys())}")
+                    
+                    # Handle both old and new chunk structures
+                    if 'metadata' in chunk:
+                        # New structure with metadata key
+                        metadata = chunk['metadata']
+                        chunk_id = f"{metadata.get('file_hash', '')}_{metadata.get('chunk_index', '')}"
+                    else:
+                        # Old structure with direct keys - create metadata structure
+                        metadata = {
+                            'file_name': chunk.get('file_name', 'Unknown'),
+                            'chunk_index': chunk.get('chunk_index', 0),
+                            'file_hash': chunk.get('file_hash', ''),
+                        }
+                        # Ensure chunk has correct structure
+                        chunk = {
+                            'content': chunk.get('chunk_text', chunk.get('content', '')),
+                            'metadata': metadata,
+                            'score': chunk.get('similarity', chunk.get('score', 0))
+                        }
+                        chunk_id = f"{metadata.get('file_hash', '')}_{metadata.get('chunk_index', '')}"
+                    
                     if chunk_id not in seen_chunk_ids:
                         seen_chunk_ids.add(chunk_id)
                         all_chunks.append(chunk)
@@ -362,18 +384,48 @@ class DocumentHandler:
             }
 
         except Exception as e:
+            doc_logger.error(f"❌ Error in query_documents: {str(e)}")
+            doc_logger.debug(f"🔍 Error type: {type(e).__name__}")
+            doc_logger.debug(f"🔍 Error details: {repr(e)}")
             print(f"Error in query_documents: {str(e)}")
+            
             # Fallback to direct content return
-            if all_chunks:
-                answer = "Here's what I found in the documents:\n\n"
-                for chunk in all_chunks[:3]:
-                    answer += f"- {chunk['content']}\n\n"
-                return {
-                    "answer": answer,
-                    "sources": all_chunks[:3],
-                    "total_docs": len(user_docs),
-                    "docs_used": len(all_chunks)
-                }
+            try:
+                # Try to access all_chunks if it exists
+                if 'all_chunks' in locals() and all_chunks:
+                    doc_logger.info(f"🔄 Using fallback with {len(all_chunks)} chunks")
+                    answer = "Here's what I found in the documents:\n\n"
+                    for chunk in all_chunks[:3]:
+                        # Safe access to chunk content
+                        content = chunk.get('content', chunk.get('chunk_text', 'No content available'))
+                        answer += f"- {content}\n\n"
+                    return {
+                        "answer": answer,
+                        "sources": all_chunks[:3],
+                        "total_docs": len(user_docs) if 'user_docs' in locals() else 0,
+                        "docs_used": len(all_chunks)
+                    }
+                else:
+                    # Get user's documents from MongoDB (fallback attempt)
+                    user_docs = self.db.get_user_documents(user_id)
+                    if user_docs and len(user_docs) > 0:
+                        doc_logger.info(f"🔄 Attempting fallback for {len(user_docs)} documents")
+                        answer = "I found some documents but encountered an issue processing them. Here's what I can tell you:\n\n"
+                        doc_count = 0
+                        for doc in user_docs[:3]:  # Limit to first 3 docs
+                            doc_count += 1
+                            file_name = doc.get('metadata', {}).get('file_name', f'Document {doc_count}')
+                            answer += f"- {file_name}\n"
+                        
+                        return {
+                            "answer": answer,
+                            "sources": [],
+                            "total_docs": len(user_docs),
+                            "docs_used": 0
+                        }
+            except Exception as fallback_error:
+                doc_logger.error(f"❌ Fallback also failed: {str(fallback_error)}")
+            
             return {
                 "answer": f"Error querying documents: {str(e)}",
                 "sources": []

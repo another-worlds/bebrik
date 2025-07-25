@@ -394,10 +394,9 @@ class MongoDB:
                 {"$limit": k},
                 {
                     "$project": {
-                        "file_name": 1,
-                        "chunk_text": "$chunks.text",
-                        "chunk_index": "$chunks.chunk_index",
-                        "similarity": 1,
+                        "content": "$chunks.content",
+                        "metadata": "$chunks.metadata",
+                        "score": "$similarity",
                         "_id": 0
                     }
                 }
