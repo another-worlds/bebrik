@@ -20,15 +20,39 @@ from ..utils.logging import db_logger, log_async_performance, log_performance
 class MongoDB:
     def __init__(self):
         db_logger.info("🔗 Initializing MongoDB connection")
-        db_logger.debug(f"📍 Connection URI: {MONGODB_URI[:30]}...")
+        
+        # Validate MongoDB URI
+        if not MONGODB_URI:
+            raise ValueError("MongoDB URI is not configured. Please check your environment variables.")
+        
+        # Log connection details (safely)
+        if MONGODB_URI.startswith("mongodb+srv://"):
+            # Extract cluster info from Atlas URI for logging
+            cluster_part = MONGODB_URI.split("@")[1].split("/")[0] if "@" in MONGODB_URI else "unknown"
+            db_logger.debug(f"📍 Connecting to MongoDB Atlas cluster: {cluster_part}")
+        else:
+            db_logger.debug(f"📍 Connection URI: {MONGODB_URI[:30]}...")
+        
         db_logger.debug(f"🗃️  Database: {MONGODB_DB_NAME}")
         
-        self.client = MongoClient(
-            MONGODB_URI,
-            tls=True,
-            tlsAllowInvalidCertificates=True,  # Disable certificate verification for development
-            serverSelectionTimeoutMS=10000  # 5 second timeout
-        )
+        try:
+            self.client = MongoClient(
+                MONGODB_URI,
+                tls=True,
+                tlsAllowInvalidCertificates=False,  # Enable certificate verification for production
+                serverSelectionTimeoutMS=30000,  # 30 second timeout for initial connection
+                connectTimeoutMS=30000,
+                socketTimeoutMS=30000
+            )
+            
+            # Test the connection
+            self.client.admin.command('ping')
+            db_logger.info("✅ MongoDB connection test successful")
+            
+        except Exception as e:
+            db_logger.error(f"❌ Failed to connect to MongoDB: {str(e)}")
+            raise
+        
         self.db = self.client[MONGODB_DB_NAME]
         self.message_queue = self.db[MONGODB_COLLECTIONS["messages"]]
         self.documents = self.db[MONGODB_COLLECTIONS["documents"]]

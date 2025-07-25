@@ -17,7 +17,17 @@ EMBEDDING_MAX_RETRIES = 3
 EMBEDDING_TIMEOUT = 30
 
 # MongoDB Configuration
-MONGODB_URI = "mongodb+srv://aegorshev:vbu677776A.@cluster0.c2qsjcq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+MONGODB_USERNAME = os.getenv("MONGODB_USERNAME")
+MONGODB_PASSWORD = os.getenv("MONGODB_PASSWORD")
+MONGODB_CLUSTER = os.getenv("MONGODB_CLUSTER")
+MONGODB_APP_NAME = os.getenv("MONGODB_APP_NAME", "Cluster0")
+
+# Construct MongoDB URI from environment variables
+if MONGODB_USERNAME and MONGODB_PASSWORD and MONGODB_CLUSTER:
+    MONGODB_URI = f"mongodb+srv://{MONGODB_USERNAME}:{MONGODB_PASSWORD}@{MONGODB_CLUSTER}/?retryWrites=true&w=majority&appName={MONGODB_APP_NAME}"
+else:
+    # Fallback to environment variable if components are missing
+    MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
 MONGODB_DB_NAME = os.getenv("MONGODB_DB_NAME", "telegram_bot")
 MONGODB_COLLECTIONS = {
     "messages": "message_queue",
